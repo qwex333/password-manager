@@ -1,3 +1,4 @@
 env/
+backup/
 commands.py
 myscript.py

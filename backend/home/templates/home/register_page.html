@@ -1,0 +1,21 @@
+
+
+{% extends 'home/base.html' %} 
+
+{% block content %}
+
+    <form name="register" action="/home/register_authn/" method="post" required="required">
+        {% csrf_token %}
+        <fieldset>
+            <legend><h1>sign up</h1></legend>
+            {% if error_message %}<p><strong>{{ error_message }}</strong></p>{% endif %}
+                <label for="user_name">Enter Your username: </label><br>
+                <input type="text" name="username" id="username" value="" placeholder="username" required="required"><br>
+                <label for="password">Enter password: </label><br>
+                <input type="text" name="password" id="password" value=""><br><br>
+        </fieldset>
+        <input type="submit" value="ok sign up">
+    </form>
+
+
+{% endblock %}

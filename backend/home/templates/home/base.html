@@ -29,7 +29,15 @@
       </div>
     </nav>
     
+    
     <div class="container">
+      {% if messages %}
+        {% for msg in messages %}
+          <div class="alert alert-primary" role="alert">
+            {{ msg }}
+          </div>
+        {% endfor %}
+      {% endif %}
       {% block content %} {% endblock %}
     </div>
 

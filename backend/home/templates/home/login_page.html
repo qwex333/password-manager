@@ -5,7 +5,7 @@
 {% block content %}
 
 
-<form name="login" action="/home/authenticate_login/" method="post" required="required">
+<form name="login" action="/home/login_authn/" method="post" required="required">
     {% csrf_token %}
     <fieldset>
         <legend><h1>log in</h1></legend>
