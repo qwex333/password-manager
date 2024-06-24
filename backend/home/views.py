@@ -5,7 +5,7 @@ from django.shortcuts import render
 from django.http import HttpResponse
 
 from datetime import datetime
-from .models import PasswordData
+from .models import PasswordData, KeyData
 from django.template import loader
 
 from django.contrib import messages
@@ -13,6 +13,8 @@ from django.shortcuts import redirect
 
 from django.contrib.auth.models import User
 from django.contrib.auth import authenticate, login
+
+from Crypto.Cipher import AES
 
 def index(request):
     # return HttpResponse("Hello, wanna sign up?  It's " + str(datetime.now()))
@@ -37,22 +39,28 @@ def register_page(request):
 def register_authn(request):
     new_username = request.POST["username"]
     new_password = request.POST["password"]
-    print(new_username)
     u = User.objects.filter(username=new_username)
     print(u)
     
     if u.exists():
         print("this username exists")
         messages.success(request, "This username already exists, please choose another one")
-        return redirect("register_page")
+        return redirect("index")
     else:
         # new_user = User(username=new_username, password=new_password) # this will not encrypt password
         new_user = User.objects.create_user(username=new_username, password=new_password)
         new_user.save()
+        
+        input_key = request.POST["key"]
+        print(input_key)
+
+        cipher = AES.new(keyToBinary(input_key), AES.MODE_EAX)
+        print(cipher.nonce)
+        KeyData.objects.create(user=new_user, nonce=cipher.nonce)
+        # new_user.keydata.create(nonce=cipher.nonce) # wrong
 
         messages.success(request, "Account registered!")
         return redirect("index")
-
 
 
 def login_page(request):
@@ -70,24 +78,25 @@ def login_authn(request):
     print("authn login")
     input_username = request.POST["username"] # get it from html form
     input_password = request.POST["password"]
-    print(input_username)
     
     user = authenticate(request, username=input_username, password=input_password)
     
     if user is not None:
         print("password matches")
         login(request, user)
-        # request.session["cur_user_pk"] = user.pk
+
+        request.session["key"] = request.POST["key"]
         messages.success(request, "login succeeds")
         return redirect("password_main")
     else:
         print("Wrong user name or password")
         messages.success(request, "Wrong user name or password")
-        return redirect("login_page")
+        return redirect("index")
     
 
 def password_main(request):
     # print(request.POST["username"])
+    print(request.session["key"])
     return render(request, "home/password_main.html")
 
 def password_add_new(request):
@@ -106,9 +115,17 @@ def password_add_new(request):
         messages.success(request, "This data already exists")
         return redirect("password_main")
     else:
+        print("encrypt data")
+        key = keyToBinary(request.session["key"])
+        print("key: ", key)
+        print("nonce: ", cur_user.keydata.nonce)
+        cipher = AES.new(key, AES.MODE_EAX, nonce=cur_user.keydata.nonce)
+        input_password = input_password.encode(encoding='utf-8')
+        ciphertext, tag = cipher.encrypt_and_digest(input_password)
+        print("ciphertext: ", ciphertext)
+
         print("let's add new data")
-        cur_user_pk = request.session.get("cur_user_pk")
-        cur_user.passworddata.create(subject=input_subject, account=input_account, password=input_password)
+        cur_user.passworddata.create(subject=input_subject, account=input_account, password=ciphertext, cipher_tag=tag)
 
         messages.success(request, "New data added")
         return redirect("password_main")
@@ -117,20 +134,33 @@ def password_add_new(request):
 def password_lookup(request):
     cur_user = request.user
 
-    if "subject" in request.POST:
-        print("yes")
+    if "subject" in request.POST: # look up by substring
         input_subject = request.POST["subject"]
-        print(input_subject)
-        query = PasswordData.objects.raw("select * from home_passworddata where user_id = %s and instr(subject, %s) > 0", [cur_user.id, input_subject])
+        query = PasswordData.objects.raw("select *, '' AS password_decrypted from home_passworddata where user_id = %s and instr(subject, %s) > 0", [cur_user.id, input_subject])
     else:
-        print("no")
-        query = cur_user.passworddata.all()
+        query = PasswordData.objects.raw("select *, '' AS password_decrypted from home_passworddata where user_id = %s", [cur_user.id])
 
+    # query_list = list(query.values("id", "subject", "account", "password", "cipher_tag"))
 
-    print("length: ", len(query))
+    print("decrypt data")
+    key = keyToBinary(request.session["key"])
+    print(key)
+    print("cur user: ", cur_user.id)
+    print("nonce: ", cur_user.keydata.nonce)
     
+    is_key_wrong = False
+    try:
+        for q in query:
+            cipher = AES.new(key, AES.MODE_EAX, nonce=cur_user.keydata.nonce) # need to reset cipher every time
+            output = cipher.decrypt_and_verify(q.password, q.cipher_tag)
+            q.password_decrypted = output.decode(encoding='UTF-8')
+    except:
+        is_key_wrong = True
+    
+
     context = {
         "password_data_lookup": query,
+        "is_key_wrong": is_key_wrong
     }
     
     return render(request, "home/password_lookup.html", context)
@@ -138,3 +168,6 @@ def password_lookup(request):
 def password_list_all(request):
     cur_user = request.user
 
+
+def keyToBinary(key):
+    return key.ljust(16, 'e').encode(encoding='utf-8')

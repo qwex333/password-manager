@@ -1,13 +1,55 @@
 
 {% extends 'home/base.html' %} 
 
-{% block title %}Home Page{% endblock %}
- 
+{% block title %}
+Password Manager
+{% endblock %}
+
 {% block content %}
-<p> Home page </p>
-<li><a href="/home/register_page/">Click to sign up</a></li>
+{% comment %} <h1 style="text-align:center"> Home page </h1> {% endcomment %}
+
+{% comment %} <li><a href="/home/register_page/">Click to sign up</a></li>
 <br>
-<li><a href="/home/login_page/">Click to log in</a></li>
+<li><a href="/home/login_page/">Click to log in</a></li> {% endcomment %}
+
+
+<form name="register" action="/home/register_authn/" method="post" required="required">
+    {% csrf_token %}
+    <fieldset>
+        <legend><h1>Sign up</h1></legend>
+        {% if error_message %}<p><strong>{{ error_message }}</strong></p>{% endif %}
+            <label for="user_name">Enter Your username: </label><br>
+            <input type="text" name="username" id="username" value="05" placeholder="username" required="required"><br>
+            <label for="password">Enter password: </label><br>
+            <input type="text" name="password" id="password" value="005"><br>
+            <label for="key">Set your own key: (less than or equal to 16 characters)</label><br>
+            <input type="text" name="key" id="key" value="123"><br><br>
+    </fieldset>
+    <input type="submit" value="OK Sign up">
+</form>
+
+<br>
+<br>
+<br>
+
+<form name="login" action="/home/login_authn/" method="post" required="required">
+    {% csrf_token %}
+    <fieldset>
+        <legend><h1>Log in</h1></legend>
+            <label for="user_name">Enter Your username: </label><br>
+            <input type="text" name="username" id="username" value="05" placeholder="username" required="required"><br>
+            <label for="password">Enter password: </label><br>
+            <input type="text" name="password" id="password" value="005"><br>
+            <label for="key">Enter your key: </label><br>
+            <input type="text" name="key" id="key" value="123"><br><br>
+    </fieldset>
+    <input type="submit" value="OK log in">
+</form>
+
+<br>
+<br>
+<br>
+
 {% endblock %}
 
 
